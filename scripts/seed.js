@@ -69,6 +69,26 @@ async function seed() {
     await db.initDb();
     console.log('[Seed] Database initialized.');
 
+    // Seed default admin and employee accounts
+    const bcrypt = require('bcryptjs');
+    const defaultUsers = [
+      { username: 'admin', email: 'admin@techcorp.io', password: 'AdminPassword123!', role: 'admin' },
+      { username: 'manager', email: 'manager@techcorp.io', password: 'ManagerPassword123!', role: 'manager' },
+      { username: 'developer', email: 'dev@techcorp.io', password: 'DevPassword123!', role: 'employee' }
+    ];
+
+    for (const u of defaultUsers) {
+      const existingUser = await db.query('SELECT id FROM users WHERE username = ? OR email = ?', [u.username, u.email]);
+      if (!existingUser.rows || existingUser.rows.length === 0) {
+        const hashed = await bcrypt.hash(u.password, 10);
+        await db.query(
+          'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
+          [u.username, u.email, hashed, u.role]
+        );
+        console.log(`[Seed] Created default user: ${u.username} (${u.role})`);
+      }
+    }
+
     for (const emp of initialEmployees) {
       const existing = await db.query('SELECT id FROM employees WHERE email = ?', [emp.email]);
       if (!existing.rows || existing.rows.length === 0) {
