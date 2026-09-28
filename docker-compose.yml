@@ -1,0 +1,63 @@
+services:
+  # ----------------------------------------------------------------------------
+  # PostgreSQL Database Service
+  # ----------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: devops-postgres-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: devops
+      POSTGRES_PASSWORD: devopspass
+      POSTGRES_DB: employeedb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - devops-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devops -d employeedb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ----------------------------------------------------------------------------
+  # Node.js Web Application Service
+  # ----------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: employee-management-app:latest
+    container_name: devops-employee-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      DB_TYPE: postgres
+      DATABASE_URL: postgres://devops:devopspass@db:5432/employeedb
+      JWT_SECRET: supersecretdevopscapstonekey_change_in_production
+      JWT_EXPIRES_IN: 24h
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - devops-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  devops-network:
+    driver: bridge
