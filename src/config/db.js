@@ -59,6 +59,7 @@ if (DB_TYPE === 'postgres') {
       );
     `);
     console.log('[DB] PostgreSQL tables verified/created successfully.');
+    await seedIfEmpty(query);
   };
 } else {
   // Use Node built-in node:sqlite
@@ -123,7 +124,46 @@ if (DB_TYPE === 'postgres') {
       );
     `);
     console.log('[DB] SQLite tables verified/created successfully.');
+    await seedIfEmpty(query);
   };
+}
+
+async function seedIfEmpty(queryFn) {
+  try {
+    const userCheck = await queryFn('SELECT COUNT(*) as count FROM users');
+    const userCount = parseInt(userCheck.rows[0]?.count || 0, 10);
+    if (userCount === 0) {
+      const bcrypt = require('bcryptjs');
+      const hashed = await bcrypt.hash('AdminPassword123!', 10);
+      await queryFn(
+        'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
+        ['admin', 'admin@techcorp.io', hashed, 'admin']
+      );
+      console.log('[DB] Seeded default admin account (admin / AdminPassword123!)');
+    }
+
+    const empCheck = await queryFn('SELECT COUNT(*) as count FROM employees');
+    const empCount = parseInt(empCheck.rows[0]?.count || 0, 10);
+    if (empCount === 0) {
+      const samples = [
+        ['Alex', 'Johnson', 'alex.johnson@techcorp.io', 'Engineering', 'Lead DevOps Engineer', 115000, 'Active', '2022-03-15'],
+        ['Sophia', 'Martinez', 'sophia.martinez@techcorp.io', 'Engineering', 'Senior Cloud Architect', 130000, 'Active', '2021-08-01'],
+        ['David', 'Kim', 'david.kim@techcorp.io', 'Product', 'Product Manager', 105000, 'Active', '2023-01-10'],
+        ['Emily', 'Chen', 'emily.chen@techcorp.io', 'Human Resources', 'HR Director', 92000, 'Active', '2020-05-20'],
+        ['Michael', 'Brown', 'michael.brown@techcorp.io', 'Finance', 'Financial Analyst', 88000, 'On Leave', '2022-11-05'],
+        ['Rachel', 'Green', 'rachel.green@techcorp.io', 'Marketing', 'Marketing Lead', 95000, 'Active', '2023-04-18']
+      ];
+      for (const s of samples) {
+        await queryFn(
+          'INSERT INTO employees (first_name, last_name, email, department, role, salary, status, hire_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          s
+        );
+      }
+      console.log(`[DB] Seeded ${samples.length} initial employee records.`);
+    }
+  } catch (err) {
+    console.error('[DB] Auto-seed warning:', err.message);
+  }
 }
 
 module.exports = {
